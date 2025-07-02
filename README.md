@@ -6,6 +6,22 @@
 
 ---
 
+## 接口功能总览
+
+| 接口函数名                    | 数据来源 | 数据类型         | 主要输入参数                                   | 主要输出字段示例                                  |
+|------------------------------|-------------|------------------|------------------------------------------------|---------------------------------------------------|
+| get_position_rank            | 中金所      | 期货/期权持仓排名 | symbol, start_date, end_date                   | date, 合约类型, 合约代码, 排名, 成交量, 买单, 卖单等 |
+| get_op_data                  | 中金所      | 期权历史行情     | symbol, start_date, end_date                   | date, 合约代码, symbol, 其余行情字段               |
+| get_etf_op_data              | 上交所      | ETF期权风险指标   | symbol, start_date, end_date                   | date, 合约简称, 交易代码, 跟踪ETF, ETF代码, 多空类型等 |
+| get_etf_op_market_sz         | 深交所      | ETF期权市场持仓   | start_date, end_date                           | date, 深交所日度持仓相关字段                       |
+| get_sz_option_risk           | 深交所      | ETF期权风险指标   | start_date, end_date                           | date, 合约简称, 合约代码, 跟踪ETF, ETF代码, 多空类型等 |
+
+
+- **symbol** 参数详见各函数说明，支持如 'IF', 'IO', '50ETF' 等。
+- **start_date/end_date** 格式为 `YYYYMMDD` 或 `YYYYMM`，详见各函数说明。
+- 所有接口输出均为 pandas DataFrame，字段自动标准化。
+
+
 ## 主要接口与功能
 
 ### 1. 期货/期权持仓排名数据
