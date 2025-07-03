@@ -8,9 +8,9 @@ from datetime import datetime, timedelta
 import warnings
 warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
 
-class CFFEXDataFetcher:
+class foDataFetcher:
     """
-    用于获取中金所期货、期权持仓排名数据和期权历史行情数据
+    用于获取中金所期货、期权持仓，以及上交所/深交所的期权排名数据和期权历史行情数据
     """
     FUTURE_SYMBOLS = ['IF', 'IC', 'IM', 'IH','TS','TF','T','TL']
     OPTION_SYMBOLS = ['IO', 'MO', 'HO']
@@ -19,9 +19,9 @@ class CFFEXDataFetcher:
         self.base_url = "http://www.cffex.com.cn/sj/ccpm/{ym}/{day}/{symbol}_1.csv"
         self.option_zip_url = "http://www.cffex.com.cn/sj/historysj/{ym}/zip/{ym}.zip"
 
-    def get_position_rank(self, symbol, start_date=None, end_date=None):
+    def get_cffex_position_rank(self, symbol, start_date=None, end_date=None):
         """
-        获取期货或期权持仓排名数据
+        获取中金所期货或期权持仓排名数据
         :param symbol: 品种名称，如'IF', 'IC', 'IM', 'IH', 'TS','TF','T','TL', 'IO', 'MO', 'HO'
         :param start_date: 'YYYYMMDD'字符串，默认最近30天
         :param end_date: 'YYYYMMDD'字符串，默认最近30天
@@ -83,7 +83,7 @@ class CFFEXDataFetcher:
                 '卖单-会员简称', '卖单-持卖单量', '卖单-比上一交易日增减'
             ])
 
-    def get_op_data(self, symbol=None, start_date=None, end_date=None):
+    def get_cffex_trade_data(self, symbol=None, start_date=None, end_date=None):
         """
         下载中金所期权历史行情zip文件并提取所有csv数据，合并为一个DataFrame
         :param symbol: 品种名称，如'IO', 'MO', 'HO'，默认为'IO'
@@ -195,7 +195,7 @@ class CFFEXDataFetcher:
             mask = (all_df['date'] >= start) & (all_df['date'] <= end)
             return all_df.loc[mask].reset_index(drop=True)
 
-    def get_etf_op_data(self, symbol="全部", start_date=None, end_date=None):
+    def get_sh_option_risk(self, symbol="全部", start_date=None, end_date=None):
         """
         获取上交所ETF期权风险指标数据
         :param symbol: ETF品种，如"全部"、"50ETF"、"300ETF"、"500ETF"、"科创50"、"科创板50"
@@ -310,72 +310,7 @@ class CFFEXDataFetcher:
         result["多空类型"] = result["合约简称"].astype(str).apply(extract_long_short)
 
         return result 
-    
-    def get_etf_op_market_sz(self, start_date=None, end_date=None):
-        """
-        获取深交所ETF期权市场每日持仓数据
-        :param start_date: 'YYYYMMDD'字符串，默认最近30天
-        :param end_date: 'YYYYMMDD'字符串，默认最近30天
-        :return: 合并后的DataFrame
-        """
-        import time
 
-        # 日期处理
-        if end_date is None:
-            end = datetime.today()
-        else:
-            end = datetime.strptime(end_date, "%Y%m%d")
-        if start_date is None:
-            start = end - timedelta(days=29)
-        else:
-            start = datetime.strptime(start_date, "%Y%m%d")
-
-        # 生成日期列表
-        date_list = []
-        cur = start
-        while cur <= end:
-            date_list.append(cur.strftime("%Y-%m-%d"))
-            cur += timedelta(days=1)
-
-        all_dfs = []
-        for trade_date in tqdm(date_list, desc="下载深交所ETF期权市场日度持仓统计"):
-            url = f"https://www.szse.cn/api/report/ShowReport?SHOWTYPE=xlsx&CATALOGID=ysprdzb&TABKEY=tab1&txtQueryDate={trade_date}"
-            headers = {
-                "Referer": "https://www.szse.cn/",
-                "User-Agent": "Mozilla/5.0"
-            }
-            try:
-                resp = requests.get(url, headers=headers, timeout=15)
-                if resp.status_code != 200 or len(resp.content) < 100:
-                    continue
-                df = None
-                for enc in ['utf-8', 'gbk', 'gb2312', 'latin1']:
-                    try:
-                        df = pd.read_excel(pd.io.common.BytesIO(resp.content), dtype=str)
-                        # 字段名标准化
-                        df.columns = [c.strip().replace('\ufeff', '') for c in df.columns]
-                        break
-                    except Exception:
-                        df = None
-                        continue
-                if df is None or df.empty:
-                    continue
-                df['date'] = trade_date
-                all_dfs.append(df)
-            except Exception as e:
-                print(f"{trade_date} 下载或解析失败: {e}")
-            time.sleep(0.2)  # 防止被封
-
-        if not all_dfs:
-            print("未获取到任何数据")
-            return pd.DataFrame()
-
-        result = pd.concat(all_dfs, ignore_index=True)
-        # 去除所有字符串字段的首尾空白字符
-        for col in result.select_dtypes(include='object').columns:
-            result[col] = result[col].astype(str).str.strip()
-        return result
-    
     def get_sz_option_risk(self, start_date=None, end_date=None):
         """
         获取深交所ETF期权风险指标数据（风险指标专用接口）
@@ -477,12 +412,76 @@ class CFFEXDataFetcher:
             result["多空类型"] = ""
 
         return result
-        
+
+    def get_sz_etf_op_market(self, start_date=None, end_date=None):
+        """
+        获取深交所ETF期权市场每日持仓数据
+        :param start_date: 'YYYYMMDD'字符串，默认最近30天
+        :param end_date: 'YYYYMMDD'字符串，默认最近30天
+        :return: 合并后的DataFrame
+        """
+        import time
+
+        # 日期处理
+        if end_date is None:
+            end = datetime.today()
+        else:
+            end = datetime.strptime(end_date, "%Y%m%d")
+        if start_date is None:
+            start = end - timedelta(days=29)
+        else:
+            start = datetime.strptime(start_date, "%Y%m%d")
+
+        # 生成日期列表
+        date_list = []
+        cur = start
+        while cur <= end:
+            date_list.append(cur.strftime("%Y-%m-%d"))
+            cur += timedelta(days=1)
+
+        all_dfs = []
+        for trade_date in tqdm(date_list, desc="下载深交所ETF期权市场日度持仓统计"):
+            url = f"https://www.szse.cn/api/report/ShowReport?SHOWTYPE=xlsx&CATALOGID=ysprdzb&TABKEY=tab1&txtQueryDate={trade_date}"
+            headers = {
+                "Referer": "https://www.szse.cn/",
+                "User-Agent": "Mozilla/5.0"
+            }
+            try:
+                resp = requests.get(url, headers=headers, timeout=15)
+                if resp.status_code != 200 or len(resp.content) < 100:
+                    continue
+                df = None
+                for enc in ['utf-8', 'gbk', 'gb2312', 'latin1']:
+                    try:
+                        df = pd.read_excel(pd.io.common.BytesIO(resp.content), dtype=str)
+                        # 字段名标准化
+                        df.columns = [c.strip().replace('\ufeff', '') for c in df.columns]
+                        break
+                    except Exception:
+                        df = None
+                        continue
+                if df is None or df.empty:
+                    continue
+                df['date'] = trade_date
+                all_dfs.append(df)
+            except Exception as e:
+                print(f"{trade_date} 下载或解析失败: {e}")
+            time.sleep(0.2)  # 防止被封
+
+        if not all_dfs:
+            print("未获取到任何数据")
+            return pd.DataFrame()
+
+        result = pd.concat(all_dfs, ignore_index=True)
+        # 去除所有字符串字段的首尾空白字符
+        for col in result.select_dtypes(include='object').columns:
+            result[col] = result[col].astype(str).str.strip()
+        return result
 
 # 示例用法
 """
 if __name__ == "__main__":
-    fetcher = CFFEXDataFetcher()
+    fetcher = foDataFetcher()
     # 期货示例
     df_fut = fetcher.get_data('IF', start_date='20250601', end_date='20250625')
     print(df_fut.head())
