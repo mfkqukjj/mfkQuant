@@ -73,6 +73,25 @@ class foDataFetcher:
 
         if all_dfs:
             result = pd.concat(all_dfs, ignore_index=True)
+            
+            # 数据处理：剔除'排名'不能转换为数字的行
+            # 使用pd.to_numeric尝试转换，可以处理'18'、'5.0'等文本型数字
+            result['排名_num'] = pd.to_numeric(result['排名'], errors='coerce')
+            result = result.dropna(subset=['排名_num'])
+            
+            # 将'排名'列转换为int格式
+            result['排名'] = result['排名_num'].astype(int)
+            result = result.drop(columns=['排名_num'])
+            
+            # 处理会员简称列，删除括号和括号内的内容
+            for col in ['成交量-会员简称', '买单-会员简称', '卖单-会员简称']:
+                if col in result.columns:
+                    # 删除半角括号和内容
+                    result[col] = result[col].astype(str).str.replace(r'\([^)]*\)', '', regex=True)
+                    # 删除全角括号和内容
+                    result[col] = result[col].str.replace(r'（[^）]*）', '', regex=True)
+                    # 去除可能残留的空格
+                    result[col] = result[col].str.strip()
             return result
         else:
             print("未获取到任何数据")
