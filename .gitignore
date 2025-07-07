@@ -9,6 +9,10 @@ __pycache__/
 # Parquet数据文件夹
 Parquet数据/
 
+#临时排除csv数据
+*.csv
+*.pkl
+
 # 坚果云
 .Ds_Store
 
